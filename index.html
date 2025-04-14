@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Suivi Élèves par Matière</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #d0e2ee;
+      padding: 40px;
+      text-align:left;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .container {
+        background: white;
+      background-size: 1500px;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      padding: 30px;
+      border-radius: 16px;
+      max-width: 800px;
+      margin: auto;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      opacity: 0.9
+      ;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .header {
+      text-align: center;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #34495e;
+    }
+    .header1 {
+      text-align: center;
+    }
+    select, input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 10px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    .devoirs-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px 20px;
+      margin-bottom: 30px;
+    }
+    button {
+      padding: 10px 16px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+      color: white;
+    }
+    .btn-generate {
+      background-color: #3498db;
+    }
+    .btn-export {
+      background-color: #27ae60;
+      margin-left: 10px;
+    }
+    canvas {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container" id="rapportZone">
+    <div class="header1">
+     <img src="C:\Users\ASUS\Downloads\logo2.jpg"alt="photo">
+     <img src="C:\Users\ASUS\Downloads\téléchargement (1).png" alt="photo">
+    </div>
+       
+        <div class="header-text">
+          <h1>MINISTÈRE DE L'ÉDUCATION NATIONALE DU SÉNÉGAL</h1>
+        </div>
+        
+      </div>
+      <br>
+      <h2>SUIVI DE L'EVOLUTION DES ELEVES</h2>
+
+  <form id="eleveForm">
+    <label for="anneeSelect">Année scolaire :</label>
+    <select id="anneeSelect" required>
+      <option value="">-- Choisissez une année --</option>
+      <option value="2022-2023">2022-2023</option>
+      <option value="2023-2024">2023-2024</option>
+      <option value="2024-2025">2024-2025</option>
+    </select>
+    <label for="niveauSelect">Niveau scolaire :</label>
+    <select id="niveauSelect" required>
+      <option value="">-- Choisissez un niveau --</option>
+      <option value="CI">CI</option>
+      <option value="CP">CP</option>
+      <option value="CE1">CE1</option>
+      <option value="CE2">CE2</option>
+      <option value="CM1">CM1</option>
+      <option value="CM2">CM2</option>
+    </select>
+    
+    <label for="eleveSelect">Sélectionner un élève :</label>
+    <select id="eleveSelect" required>
+      <option value="">-- Choisissez un élève --</option>
+    </select>
+
+    <label for="nomEleve">Nom de l’élève :</label>
+    <input type="text" id="nomEleve" placeholder="Nom de l’élève" required>
+
+    <label for="matiereSelect">Sélectionner une matière :</label>
+    <select id="matiereSelect" required>
+      <option value="">-- Choisissez une matière --</option>
+    </select>
+
+    <div id="devoirsContainer"></div>
+
+    <button type="submit" class="btn-generate">Générer Graphique</button>
+    <button type="button" class="btn-export" onclick="exportPDF()">Exporter PDF</button>
+  </form>
+
+  <canvas id="chartCanvas" height="100"></canvas>
+</div>
+
+<script>
+  const matieres = [
+    'Mathématique',
+    'Éducation à la science et à la vie sociale',
+    'Langue et communication'
+  ];
+  const devoirs = ['Devoir 1', 'Devoir 2', 'Devoir 3', 'Devoir 4', 'Devoir 5', 'Devoir 6'];
+  const eleveSelect = document.getElementById('eleveSelect');
+  const matiereSelect = document.getElementById('matiereSelect');
+  const devoirsContainer = document.getElementById('devoirsContainer');
+  const nomInput = document.getElementById('nomEleve');
+  const anneeSelect = document.getElementById('anneeSelect');
+  const form = document.getElementById('eleveForm');
+  const maxEleves = 20;
+  let chartInstance;
+  const notesData = {};
+
+  for (let i = 1; i <= maxEleves; i++) {
+    const option = document.createElement('option');
+    option.value = `eleve_${i}`;
+    option.textContent = `Élève ${i}`;
+    eleveSelect.appendChild(option);
+  }
+
+  matieres.forEach(matiere => {
+    const option = document.createElement('option');
+    option.value = matiere;
+    option.textContent = matiere;
+    matiereSelect.appendChild(option);
+  });
+
+  function genererChamps(matiere) {
+    devoirsContainer.innerHTML = '';
+    const container = document.createElement('div');
+    container.className = 'devoirs-container';
+
+    devoirs.forEach((devoir, i) => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = 0;
+      input.max = 10;
+      input.step = 0.1;
+      input.required = true;
+      input.name = `${matiere}_${i}`;
+      input.placeholder = devoir;
+      container.appendChild(input);
+    });
+
+    devoirsContainer.appendChild(container);
+  }
+
+  function chargerNotes(eleveId, matiere) {
+    genererChamps(matiere);
+    const data = notesData[eleveId];
+    if (data) {
+      nomInput.value = data.nom || '';
+      devoirs.forEach((_, i) => {
+        const field = document.querySelector(`input[name="${matiere}_${i}"]`);
+        if (field) field.value = data[`${matiere}_${i}`] || '';
+      });
+    } else {
+      nomInput.value = '';
+    }
+  }
+
+  eleveSelect.addEventListener('change', () => {
+    if (eleveSelect.value && matiereSelect.value) {
+      chargerNotes(eleveSelect.value, matiereSelect.value);
+    }
+  });
+
+  matiereSelect.addEventListener('change', () => {
+    if (eleveSelect.value && matiereSelect.value) {
+      chargerNotes(eleveSelect.value, matiereSelect.value);
+    }
+  });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const eleveId = eleveSelect.value;
+    const nom = nomInput.value;
+    const matiere = matiereSelect.value;
+    const annee = anneeSelect.value;
+
+    if (!eleveId || !nom || !matiere || !annee) {
+      alert("Veuillez remplir tous les champs.");
+      return;
+    }
+
+    const formData = new FormData(form);
+    notesData[eleveId] = notesData[eleveId] || {};
+    notesData[eleveId].nom = nom;
+
+    const notes = devoirs.map((_, i) => {
+      const key = `${matiere}_${i}`;
+      const val = parseFloat(formData.get(key));
+      notesData[eleveId][key] = val;
+      return val;
+    });
+
+    if (chartInstance) chartInstance.destroy();
+
+    const ctx = document.getElementById('chartCanvas').getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: devoirs,
+        datasets: [{
+          label: matiere,
+          data: notes,
+          borderColor: '#2ecc71',
+          fill: false,
+          tension: 0.3
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            min: 0,
+            max: 10,
+            title: { display: true, text: 'Note /10' }
+          }
+        },
+        plugins: {
+          title: {
+            display: true,
+            text: `Évolution de ${nom} en ${matiere} — Année scolaire ${annee}`
+          },
+          legend: {
+            position: 'bottom'
+          }
+        }
+      }
+    });
+  });
+
+  async function exportPDF() {
+    const container = document.getElementById('rapportZone');
+    const canvas = await html2canvas(container, { scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const props = pdf.getImageProperties(imgData);
+    const pdfWidth = 210;
+    const pdfHeight = (props.height * pdfWidth) / props.width;
+    pdf.addImage(imgData, 'PNG', 0, 10, pdfWidth, pdfHeight);
+    const nom = nomInput.value || 'eleve';
+    const matiere = matiereSelect.value || 'matiere';
+    const annee = anneeSelect.value || 'annee';
+    pdf.save(`rapport_${nom}_${matiere}_${annee}.pdf`);
+  }
+</script>
+
+</body>
+</html>
